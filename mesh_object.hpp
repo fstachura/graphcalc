@@ -80,7 +80,8 @@ public:
 
         // wireframe mode
         glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-        glDrawElements(GL_TRIANGLES, mesh.indices.size(), GL_UNSIGNED_INT, 0);
+        // glDrawElements(GL_TRIANGLES, mesh.indices.size(), GL_UNSIGNED_INT, 0);
+        glDrawElements(GL_PATCHES, mesh.indices.size(), GL_UNSIGNED_INT, 0);
     }
 
     virtual ~GLMeshObject() {

@@ -3,6 +3,7 @@
 #include <stdexcept>
 #include <vector>
 #include <map>
+#include <iostream>
 
 #include <glm/glm.hpp>
 #include "GL/glew.h"
@@ -42,8 +43,11 @@ class GLShaderPipeline {
     GLuint id;
     bool linked = false;
     std::map<std::string, GLint> uniformIds {};
-    std::optional<GLuint> vertexShaderId;
-    std::optional<GLuint> fragmentShaderId;
+    std::optional<GLuint> vertexShaderId {};
+    std::optional<GLuint> fragmentShaderId {};
+    std::optional<GLuint> tessCtrlShaderId {};
+    std::optional<GLuint> tessEvalShaderId {};
+    std::optional<GLuint> patchVertices;
     // tesselation shaders...
     // compute shaders?
 
@@ -82,6 +86,7 @@ public:
 
     void setVertexShader(const std::string &vertexShader) {
         auto oldShaderId = vertexShaderId;
+        std::cout << "compiling vertex shader" << std::endl;
         vertexShaderId = compileShader(GL_VERTEX_SHADER, vertexShader);
         if (oldShaderId.has_value()) {
             glDetachShader(id, *oldShaderId);
@@ -92,6 +97,7 @@ public:
 
     void setFragmentShader(const std::string &fragmentShader) {
         auto oldShaderId = fragmentShaderId;
+        std::cout << "compiling fragment shader" << std::endl;
         fragmentShaderId = compileShader(GL_FRAGMENT_SHADER, fragmentShader);
         if (oldShaderId.has_value()) {
             glDetachShader(id, *oldShaderId);
@@ -100,11 +106,39 @@ public:
         linked = false;
     }
 
+    void setTessCtrlShader(const std::string &tessCtrlShader) {
+        auto oldShaderId = tessCtrlShaderId;
+        std::cout << "compiling tess ctrl shader" << std::endl;
+        tessCtrlShaderId = compileShader(GL_TESS_CONTROL_SHADER, tessCtrlShader);
+        if (oldShaderId.has_value()) {
+            glDetachShader(id, *oldShaderId);
+            glDeleteShader(*oldShaderId);
+        }
+        linked = false;
+    }
+
+    void setTessEvalShader(const std::string &tessEvalShader) {
+        auto oldShaderId = tessEvalShaderId;
+        std::cout << "compiling tess eval shader" << std::endl;
+        tessEvalShaderId = compileShader(GL_TESS_EVALUATION_SHADER, tessEvalShader);
+        if (oldShaderId.has_value()) {
+            glDetachShader(id, *oldShaderId);
+            glDeleteShader(*oldShaderId);
+        }
+        linked = false;
+    }
+
+    void setPatchVertices(int newPatchVertices) {
+        patchVertices = newPatchVertices;
+    }
+
     void enable() {
         if (!linked) {
             linkProgram();
             linked = true;
         }
+        if (patchVertices.has_value())
+            glPatchParameteri(GL_PATCH_VERTICES, *patchVertices);
         glUseProgram(id);
     }
 
@@ -143,6 +177,10 @@ public:
     void linkProgram() const {
         if (vertexShaderId.has_value())
             glAttachShader(id, *vertexShaderId);
+        if (tessCtrlShaderId.has_value())
+            glAttachShader(id, *tessCtrlShaderId);
+        if (tessEvalShaderId.has_value())
+            glAttachShader(id, *tessEvalShaderId);
         if (fragmentShaderId.has_value())
             glAttachShader(id, *fragmentShaderId);
         glLinkProgram(id);
@@ -155,6 +193,10 @@ public:
             glDeleteShader(*fragmentShaderId);
         if (vertexShaderId.has_value())
             glDeleteShader(*vertexShaderId);
+        if (tessCtrlShaderId.has_value())
+            glDeleteShader(*tessCtrlShaderId);
+        if (tessEvalShaderId.has_value())
+            glDeleteShader(*tessEvalShaderId);
     }
 };
 

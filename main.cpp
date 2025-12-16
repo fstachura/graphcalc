@@ -133,15 +133,14 @@ void initOpenGL() {
         throw std::runtime_error("failed to init glfw");
     }
 
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, true);
 }
 
 // TODO
 // coordinates? size of the plane
-// generate more vertices with tesselation
 // handle window resizing
 // add lightning and shadows
 // parse expression from GUI
@@ -180,9 +179,14 @@ int main() {
     glEnable(GL_DEPTH_TEST);
 
     std::shared_ptr<GLShaderPipeline> shaders = std::make_shared<GLShaderPipeline>();
-    shaders->setVertexShader(readFile("shaders/main.vert"));
-    shaders->setFragmentShader(readFile("shaders/main.frag"));
-    std::unique_ptr<GLMeshObject> plane = std::make_unique<GLMeshObject>(generate_plane_mesh(1024), shaders);
+    // shaders->setVertexShader(readFile("shaders/main.vert"));
+    // shaders->setFragmentShader(readFile("shaders/main.frag"));
+    shaders->setVertexShader(readFile("shaders/plane.vert"));
+    shaders->setFragmentShader(readFile("shaders/plane.frag"));
+    shaders->setTessCtrlShader(readFile("shaders/plane.tesc"));
+    shaders->setTessEvalShader(readFile("shaders/plane.tese"));
+    shaders->setPatchVertices(3);
+    std::unique_ptr<GLMeshObject> plane = std::make_unique<GLMeshObject>(generate_plane_mesh(128), shaders);
 
     App app { .window = window };
     app.scene.objects.push_back(std::move(plane));
