@@ -1,5 +1,5 @@
-main: main.cpp
-	g++ -lGL -lGLEW -lglfw -o main main.cpp
+main: main.cpp *.hpp
+	g++ -g -lGL -lGLEW -lglfw -o main main.cpp
 
 clean:
-	rm main
+	rm -f main
