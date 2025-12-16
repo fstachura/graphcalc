@@ -74,7 +74,11 @@ public:
     void render(const glm::mat4 &viewMatrix, const glm::mat4 &projectionMatrix) override {
         shaderPipeline->enable();
 
-        shaderPipeline->setUniform("model", glm::identity<glm::mat4>());
+        // translation matrix
+        shaderPipeline->setUniform("model", glm::translate(
+            glm::mat4(1.0f),
+            glm::vec3(-60.0f, 0.0f, -60.0f)
+        ));
         shaderPipeline->setUniform("view", viewMatrix);
         shaderPipeline->setUniform("projection", projectionMatrix);
 

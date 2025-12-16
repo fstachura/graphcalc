@@ -13,6 +13,12 @@
 #include "GLFW/glfw3.h"
 // OpenGL mathematics library
 
+#include "imgui.h"
+#include "imgui/backends/imgui_impl_opengl3.h"
+#include "imgui/imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
+
 #include "utils.hpp"
 #include "shader_pipeline.hpp"
 #include "mesh_object.hpp"
@@ -111,6 +117,13 @@ struct App {
             sin(camRy) * radius,
             sin(camRx) * cos(camRy) * radius,
         };
+
+        // std::cout
+        //     << camX << " " << camY << " "
+        //     << scene.camera.position.x << " " 
+        //     << scene.camera.position.y << " " 
+        //     << scene.camera.position.z << " " 
+        //     << std::endl;
     }
 };
 
@@ -149,6 +162,11 @@ void initOpenGL() {
 
 // rotate by mouse - kinda works, TODO math
 
+// +,-,*,/,sin,cos,tan,tanh,ctan,ctanh,pow,sqrt,exp
+// pi, e
+
+// parse into tree -> sequence of stack-based instructions -> 
+
 int main() {
     initOpenGL();
 
@@ -173,7 +191,7 @@ int main() {
 
     glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
     glfwSetInputMode(window, GLFW_STICKY_MOUSE_BUTTONS, GL_TRUE);
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    // glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     glEnable(GL_DEPTH_TEST);
@@ -184,7 +202,10 @@ int main() {
     shaders->setVertexShader(readFile("shaders/plane.vert"));
     shaders->setFragmentShader(readFile("shaders/plane.frag"));
     shaders->setTessCtrlShader(readFile("shaders/plane.tesc"));
-    shaders->setTessEvalShader(readFile("shaders/plane.tese"));
+    std::string tessEvalShader = readFile("shaders/plane.tese");
+    std::string calcFunc = "float func(float x, float y) { return sin(x) + cos(y); }";
+    shaders->setTessEvalShader(tessEvalShader + calcFunc);
+
     shaders->setPatchVertices(3);
     std::unique_ptr<GLMeshObject> plane = std::make_unique<GLMeshObject>(generate_plane_mesh(128), shaders);
 
@@ -195,11 +216,52 @@ int main() {
     glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
     glfwSetWindowUserPointer(window, &app);
 
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    ImGui_ImplGlfw_InitForOpenGL(window, true); 
+    ImGui_ImplOpenGL3_Init();
+
+    char buf[512] = {0};
     while (!glfwWindowShouldClose(window)) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         app.tickInputEvents();
         app.scene.render();
+
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+
+        if (ImGui::Begin("GraphCalc")) {
+            if (ImGui::InputText("formula", buf, sizeof(buf))) {
+                std::string calcFunc(buf);
+                calcFunc = "float func(float x, float y) { return float(" + calcFunc + "); }";
+
+                GLuint shaderID = glCreateShader(GL_TESS_EVALUATION_SHADER);
+                char const *shaderSrc = calcFunc.c_str();
+                glShaderSource(shaderID, 1, &shaderSrc, nullptr);
+                glCompileShader(shaderID);
+                bool ok = false;
+                try {
+                    checkShader(shaderID);
+                    ok = true;
+                } catch (std::runtime_error& e) {
+                    std::cout << "failed to compile expression: " << std::endl;
+                    std::cout << e.what() << std::endl;
+                }
+                glDeleteShader(shaderID);
+
+                if (ok) {
+                    shaders->setTessEvalShader(tessEvalShader + calcFunc);
+                }
+            }
+            ImGui::End();
+        }
+
+        ImGui::EndFrame();
+        ImGui::Render();
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
         glfwSwapBuffers(window);
         glfwPollEvents();
