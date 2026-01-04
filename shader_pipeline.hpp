@@ -69,8 +69,10 @@ class GLShaderPipeline {
             return it->second;
 
         const GLint uniformId = glGetUniformLocation(id, name.c_str());
-        if (uniformId == -1)
-            throw std::runtime_error("failed to get uniform with name: " + name);
+        if (uniformId == -1) {
+            // throw std::runtime_error("failed to get uniform with name: " + name);
+            std::cerr << "failed to get uniform with name: " << name << std::endl;
+        }
 
         uniformIds.emplace(name, uniformId);
         return uniformId;

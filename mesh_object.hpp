@@ -18,6 +18,11 @@ class GLMeshObject: public GLRenderable {
     // element buffer - stores vertex indices that OpenGL uses to decide what vertices to draw
     GLuint ebo;
 
+    float center_x = 0;
+    float center_y = 0;
+    bool wireframe_mode = false;
+    bool tesselation = false;
+
     std::shared_ptr<GLShaderPipeline> shaderPipeline;
     GLMesh mesh;
 
@@ -71,6 +76,22 @@ public:
         glEnableVertexAttribArray(1);
     }
 
+    void set_center_x(float x) {
+        center_x = x;
+    }
+
+    void set_center_y(float y) {
+        center_y = y;
+    }
+
+    void set_wireframe_mode(bool wireframe_mode) {
+        this->wireframe_mode = wireframe_mode;
+    }
+
+    void set_tesselation(bool tesselation) {
+        this->tesselation = tesselation;
+    }
+
     void render(const glm::mat4 &viewMatrix, const glm::mat4 &projectionMatrix) override {
         shaderPipeline->enable();
 
@@ -81,11 +102,20 @@ public:
         ));
         shaderPipeline->setUniform("view", viewMatrix);
         shaderPipeline->setUniform("projection", projectionMatrix);
+        shaderPipeline->setUniform("center", glm::vec2{center_x, center_y});
 
         // wireframe mode
-        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-        // glDrawElements(GL_TRIANGLES, mesh.indices.size(), GL_UNSIGNED_INT, 0);
-        glDrawElements(GL_PATCHES, mesh.indices.size(), GL_UNSIGNED_INT, 0);
+        if (this->wireframe_mode) {
+            glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        } else {
+            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        }
+
+        if (tesselation) {
+            glDrawElements(GL_PATCHES, mesh.indices.size(), GL_UNSIGNED_INT, 0);
+        } else {
+            glDrawElements(GL_TRIANGLES, mesh.indices.size(), GL_UNSIGNED_INT, 0);
+        }
     }
 
     virtual ~GLMeshObject() {

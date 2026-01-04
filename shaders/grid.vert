@@ -13,10 +13,6 @@ uniform vec2 center;
 
 void main() {
     position = in_position;
-    //position.y = sin(position.x) + cos(position.z);
-    gl_Position = vec4(position, 1.0);
-    // gl_Position = projection * view * model * vec4(position, 1.0);
-    // gl_Position = vec4(in_position, 1.0);
+    gl_Position = projection * view * model * vec4(position, 1.0);
     color = in_color;
-    position = in_position;
 }

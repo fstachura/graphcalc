@@ -22,6 +22,7 @@
 #include "utils.hpp"
 #include "shader_pipeline.hpp"
 #include "mesh_object.hpp"
+#include "expr_parser.hpp"
 
 // NOTE: partially based on https://github.com/quazuo/grafika-mimuw
 
@@ -31,6 +32,7 @@ public:
     glm::vec3 up { 0, 1, 0 };
     glm::vec3 where { 0, 0, 0 };
     float aspectRatio = 4.05 / 3.0f;
+    // float aspectRatio = 1200.0f / 800.0f;
     float fieldOfView = 80.f;
     float zNear = 0.1f;
     float zFar = 500.f;
@@ -46,10 +48,14 @@ public:
     glm::mat4 getProjectionMatrix() {
         return glm::perspective(glm::radians(fieldOfView), aspectRatio, zNear, zFar);
     }
+
+    void setAspectRatio(float aspectRatio) {
+        this->aspectRatio = aspectRatio;
+    }
 };
 
 struct GLScene {
-    std::vector<std::unique_ptr<GLRenderable>> objects;
+    std::vector<std::shared_ptr<GLRenderable>> objects;
     GLCamera camera;
 
     void render() {
@@ -120,18 +126,12 @@ struct App {
 
         // std::cout
         //     << camX << " " << camY << " "
-        //     << scene.camera.position.x << " " 
-        //     << scene.camera.position.y << " " 
-        //     << scene.camera.position.z << " " 
+        //     << scene.camera.position.x << " "
+        //     << scene.camera.position.y << " "
+        //     << scene.camera.position.z << " "
         //     << std::endl;
     }
 };
-
-void framebufferSizeCallback(GLFWwindow *window, const int width, const int height) {
-    if (width > 0 && height > 0) {
-        glViewport(0, 0, width, height);
-    }
-}
 
 void windowRefreshCallback(GLFWwindow *window) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -156,16 +156,13 @@ void initOpenGL() {
 // coordinates? size of the plane
 // handle window resizing
 // add lightning and shadows
-// parse expression from GUI
 // add optional texture and other options from GUI
 // polar coordinates?
 
 // rotate by mouse - kinda works, TODO math
 
-// +,-,*,/,sin,cos,tan,tanh,ctan,ctanh,pow,sqrt,exp
-// pi, e
-
-// parse into tree -> sequence of stack-based instructions -> 
+int fbWidth = 1200, fbHeight = 800;
+bool fbSizeChanged = false;
 
 int main() {
     initOpenGL();
@@ -205,28 +202,53 @@ int main() {
     std::string tessEvalShader = readFile("shaders/plane.tese");
     std::string calcFunc = "float func(float x, float y) { return sin(x) + cos(y); }";
     shaders->setTessEvalShader(tessEvalShader + calcFunc);
-
     shaders->setPatchVertices(3);
-    std::unique_ptr<GLMeshObject> plane = std::make_unique<GLMeshObject>(generate_plane_mesh(128), shaders);
+
+    std::shared_ptr<GLMeshObject> plane = std::make_shared<GLMeshObject>(generate_plane_mesh(128), shaders);
+    plane->set_tesselation(true);
+
+    std::shared_ptr<GLShaderPipeline> grid_shaders = std::make_shared<GLShaderPipeline>();
+    grid_shaders->setVertexShader(readFile("shaders/grid.vert"));
+    grid_shaders->setFragmentShader(readFile("shaders/grid.frag"));
+
+    std::shared_ptr<GLMeshObject> grid = std::make_shared<GLMeshObject>(generate_plane_mesh(128), grid_shaders);
+    grid->set_wireframe_mode(true);
 
     App app { .window = window };
-    app.scene.objects.push_back(std::move(plane));
+    app.scene.objects.push_back(plane);
+    app.scene.objects.push_back(grid);
 
     glfwSetWindowRefreshCallback(window, windowRefreshCallback);
-    glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
     glfwSetWindowUserPointer(window, &app);
+
+    auto fbSizeCallback = [](GLFWwindow *window, const int width, const int height) {
+        if (width > 0 && height > 0) {
+            fbWidth = width;
+            fbHeight = height;
+            fbSizeChanged = true;
+        }
+    };
+
+    glfwSetFramebufferSizeCallback(window, fbSizeCallback);
 
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-    ImGui_ImplGlfw_InitForOpenGL(window, true); 
+    ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init();
 
-    char buf[512] = {0};
+    std::string error_str = "";
+    char buf[1024] = {0};
+
+    float center_x = 0;
+    float center_y = 0;
+
     while (!glfwWindowShouldClose(window)) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        app.tickInputEvents();
+        if (!ImGui::GetIO().WantCaptureMouse)
+            app.tickInputEvents();
+
         app.scene.render();
 
         ImGui_ImplOpenGL3_NewFrame();
@@ -235,27 +257,29 @@ int main() {
 
         if (ImGui::Begin("GraphCalc")) {
             if (ImGui::InputText("formula", buf, sizeof(buf))) {
-                std::string calcFunc(buf);
-                calcFunc = "float func(float x, float y) { return float(" + calcFunc + "); }";
-
-                GLuint shaderID = glCreateShader(GL_TESS_EVALUATION_SHADER);
-                char const *shaderSrc = calcFunc.c_str();
-                glShaderSource(shaderID, 1, &shaderSrc, nullptr);
-                glCompileShader(shaderID);
-                bool ok = false;
                 try {
-                    checkShader(shaderID);
-                    ok = true;
-                } catch (std::runtime_error& e) {
-                    std::cout << "failed to compile expression: " << std::endl;
-                    std::cout << e.what() << std::endl;
-                }
-                glDeleteShader(shaderID);
+                    std::string calcFunc = Parser(tokenize(buf)).parse()->to_string();
 
-                if (ok) {
+                    calcFunc = "float func(float x, float y) { return float(" + calcFunc + "); }";
+                    std::cout << calcFunc << std::endl;
                     shaders->setTessEvalShader(tessEvalShader + calcFunc);
+
+                    error_str = "";
+                } catch (ParserError e) {
+                    error_str = "Failed to parse: " + e.what + " in " + std::to_string(e.pos);
+                } catch (TokenizerError e) {
+                    error_str = "Failed to parse: " + e.what + " in " + std::to_string(e.pos);
                 }
             }
+
+            ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "%s", error_str.c_str());
+
+            if (ImGui::DragFloat("center x", &center_x, 0.01f))
+                plane->set_center_x(center_x);
+
+            if (ImGui::DragFloat("center y", &center_y, 0.01f))
+                plane->set_center_y(center_y);
+
             ImGui::End();
         }
 
@@ -265,6 +289,12 @@ int main() {
 
         glfwSwapBuffers(window);
         glfwPollEvents();
+
+        if (fbSizeChanged) {
+            glViewport(0, 0, fbWidth, fbHeight);
+            app.scene.camera.setAspectRatio((float)fbWidth/(float)fbHeight);
+            fbSizeChanged = false;
+        }
     }
 
     glfwDestroyWindow(window);
