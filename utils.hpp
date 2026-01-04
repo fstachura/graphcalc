@@ -25,24 +25,28 @@ struct GLRenderable {
 GLMesh generate_plane_mesh(int side_len) {
     GLMesh plane;
 
-    float start_x = -1.0;
-    float end_x = 1.0;
-    float step_x = end_x-start_x / ((float)side_len);
-    float start_y = -1.0;
-    float end_y = 1.0;
-    float step_y = end_y-start_y / ((float)side_len);
+    double start_x = -1.0;
+    double end_x = 1.0;
+    double step_x = (end_x-start_x) / ((float)side_len-1);
+    double start_y = -1.0;
+    double end_y = 1.0;
+    double step_y = (end_y-start_y) / ((float)side_len-1);
+    double offset_x = 0, offset_y = 0;
 
     for (int y=0; y != side_len; y++) {
+        offset_y = 0.0;
         for (int x=0; x != side_len; x++) {
             plane.vertices.push_back({
-                { start_x + ((float)x)*step_x, 0.0, start_y + ((float)y)*step_y },
+                { start_x + offset_x, 0.0, start_y + offset_y },
                 {
                     (y*side_len + x) % 3 == 0 ? 0.0 : 1.0,
                     (y*(side_len+1) + x) % 3 == 1 ? 0.0 : 1.0,
                     (y*(side_len+2) + x) % 3 == 2 ? 0.0 : 1.0,
                 }
             });
+            offset_y += step_y;
         }
+        offset_x += step_x;
     }
 
     for (int y=0; y != side_len-1; y++) {

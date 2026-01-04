@@ -1,3 +1,4 @@
+#include <glm/common.hpp>
 #include <glm/ext/matrix_clip_space.hpp>
 #include <glm/ext/matrix_transform.hpp>
 #include <iostream>
@@ -21,6 +22,7 @@
 
 #include "utils.hpp"
 #include "shader_pipeline.hpp"
+#include "graph.hpp"
 #include "mesh_object.hpp"
 #include "expr_parser.hpp"
 
@@ -75,7 +77,8 @@ struct App {
     double camRy = 0.0;
     double camX = 0.0;
     double camY = 0.0;
-    double radius = 50.0;
+    float camZoom = 0.0;
+    double radius = 5.0;
     double movementSpeed = 0.5f;
 
     void tickInputEvents() {
@@ -93,11 +96,11 @@ struct App {
                 if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) {
                     camX = glm::clamp(
                         camX + std::cos(camRx - glm::pi<double>() / 2.0) * xoffset +  std::cos(camRx) * yoffset,
-                        -50.0, 50.0
+                        -5.0, 5.0
                     );
                     camY = glm::clamp(
                         camY + std::sin(camRx - glm::pi<double>() / 2.0) * xoffset +  std::sin(camRx) * yoffset,
-                        -50.0, 50.0
+                        -5.0, 5.0
                     );
                 } else {
                     camRx += xoffset;
@@ -124,12 +127,8 @@ struct App {
             sin(camRx) * cos(camRy) * radius,
         };
 
-        // std::cout
-        //     << camX << " " << camY << " "
-        //     << scene.camera.position.x << " "
-        //     << scene.camera.position.y << " "
-        //     << scene.camera.position.z << " "
-        //     << std::endl;
+        glm::vec3 normDir = glm::normalize(scene.camera.where - scene.camera.position);
+        scene.camera.position += camZoom * normDir;
     }
 };
 
@@ -153,16 +152,30 @@ void initOpenGL() {
 }
 
 // TODO
-// coordinates? size of the plane
-// handle window resizing
+// heatmap
+// numbers on grid, z grid
 // add lightning and shadows
 // add optional texture and other options from GUI
 // polar coordinates?
 
-// rotate by mouse - kinda works, TODO math
+// TODO math
 
 int fbWidth = 1200, fbHeight = 800;
 bool fbSizeChanged = false;
+
+void fbSizeCallback(GLFWwindow *window, const int width, const int height) {
+    if (width > 0 && height > 0) {
+        fbWidth = width;
+        fbHeight = height;
+        fbSizeChanged = true;
+    }
+};
+
+float zoomFactor = 0.0;
+
+void scrollCallback(GLFWwindow *window, double xoffset, double yoffset) {
+    zoomFactor = glm::clamp(zoomFactor + yoffset, -10.0, 4.0);
+};
 
 int main() {
     initOpenGL();
@@ -193,43 +206,25 @@ int main() {
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     glEnable(GL_DEPTH_TEST);
 
-    std::shared_ptr<GLShaderPipeline> shaders = std::make_shared<GLShaderPipeline>();
-    // shaders->setVertexShader(readFile("shaders/main.vert"));
-    // shaders->setFragmentShader(readFile("shaders/main.frag"));
-    shaders->setVertexShader(readFile("shaders/plane.vert"));
-    shaders->setFragmentShader(readFile("shaders/plane.frag"));
-    shaders->setTessCtrlShader(readFile("shaders/plane.tesc"));
-    std::string tessEvalShader = readFile("shaders/plane.tese");
-    std::string calcFunc = "float func(float x, float y) { return sin(x) + cos(y); }";
-    shaders->setTessEvalShader(tessEvalShader + calcFunc);
-    shaders->setPatchVertices(3);
-
-    std::shared_ptr<GLMeshObject> plane = std::make_shared<GLMeshObject>(generate_plane_mesh(128), shaders);
-    plane->set_tesselation(true);
+    auto graph = std::make_shared<Graph>();
 
     std::shared_ptr<GLShaderPipeline> grid_shaders = std::make_shared<GLShaderPipeline>();
     grid_shaders->setVertexShader(readFile("shaders/grid.vert"));
     grid_shaders->setFragmentShader(readFile("shaders/grid.frag"));
 
-    std::shared_ptr<GLMeshObject> grid = std::make_shared<GLMeshObject>(generate_plane_mesh(128), grid_shaders);
-    grid->set_wireframe_mode(true);
+    std::shared_ptr<GLMeshObject> grid = std::make_shared<GLMeshObject>(generate_plane_mesh(11), grid_shaders);
+    grid->setWireframeMode(true);
+    grid->setScale({3, 3, 3});
 
     App app { .window = window };
-    app.scene.objects.push_back(plane);
+    app.scene.objects.push_back(graph);
     app.scene.objects.push_back(grid);
 
     glfwSetWindowRefreshCallback(window, windowRefreshCallback);
     glfwSetWindowUserPointer(window, &app);
 
-    auto fbSizeCallback = [](GLFWwindow *window, const int width, const int height) {
-        if (width > 0 && height > 0) {
-            fbWidth = width;
-            fbHeight = height;
-            fbSizeChanged = true;
-        }
-    };
-
     glfwSetFramebufferSizeCallback(window, fbSizeCallback);
+    glfwSetScrollCallback(window, scrollCallback);
 
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
@@ -238,10 +233,11 @@ int main() {
     ImGui_ImplOpenGL3_Init();
 
     std::string error_str = "";
-    char buf[1024] = {0};
+    char buf[1024] = {"sin(x)*cos(y)"};
 
-    float center_x = 0;
-    float center_y = 0;
+    float center_x = 0, center_y = 0;
+    float range_x_start = 0, range_x_end = 0;
+    float range_y_start = 0, range_y_end = 0;
 
     while (!glfwWindowShouldClose(window)) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -249,6 +245,7 @@ int main() {
         if (!ImGui::GetIO().WantCaptureMouse)
             app.tickInputEvents();
 
+        app.camZoom = zoomFactor;
         app.scene.render();
 
         ImGui_ImplOpenGL3_NewFrame();
@@ -258,12 +255,7 @@ int main() {
         if (ImGui::Begin("GraphCalc")) {
             if (ImGui::InputText("formula", buf, sizeof(buf))) {
                 try {
-                    std::string calcFunc = Parser(tokenize(buf)).parse()->to_string();
-
-                    calcFunc = "float func(float x, float y) { return float(" + calcFunc + "); }";
-                    std::cout << calcFunc << std::endl;
-                    shaders->setTessEvalShader(tessEvalShader + calcFunc);
-
+                    graph->setCalcFunc(buf);
                     error_str = "";
                 } catch (ParserError e) {
                     error_str = "Failed to parse: " + e.what + " in " + std::to_string(e.pos);
@@ -275,10 +267,19 @@ int main() {
             ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "%s", error_str.c_str());
 
             if (ImGui::DragFloat("center x", &center_x, 0.01f))
-                plane->set_center_x(center_x);
-
+                graph->setCenter({center_x, center_y});
             if (ImGui::DragFloat("center y", &center_y, 0.01f))
-                plane->set_center_y(center_y);
+                graph->setCenter({center_x, center_y});
+
+            if (ImGui::DragFloat("range x start", &range_x_start, 0.01f, -10, 10))
+                graph->setRangeX({range_x_start, range_x_end});
+            if (ImGui::DragFloat("range x end", &range_x_end, 0.01f, -10, 10))
+                graph->setRangeX({range_x_start, range_x_end});
+
+            if (ImGui::DragFloat("range y start", &range_y_start, 0.01f, -10, 10))
+                graph->setRangeY({range_y_start, range_y_end});
+            if (ImGui::DragFloat("range y end", &range_y_end, 0.01f, -10, 10))
+                graph->setRangeY({range_y_start, range_y_end});
 
             ImGui::End();
         }

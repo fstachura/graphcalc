@@ -18,10 +18,10 @@ class GLMeshObject: public GLRenderable {
     // element buffer - stores vertex indices that OpenGL uses to decide what vertices to draw
     GLuint ebo;
 
-    float center_x = 0;
-    float center_y = 0;
-    bool wireframe_mode = false;
+    bool wireframeMode = false;
     bool tesselation = false;
+    glm::vec3 position = {0, 0, 0};
+    glm::vec3 scale = {1, 1, 1};
 
     std::shared_ptr<GLShaderPipeline> shaderPipeline;
     GLMesh mesh;
@@ -76,36 +76,43 @@ public:
         glEnableVertexAttribArray(1);
     }
 
-    void set_center_x(float x) {
-        center_x = x;
+    GLShaderPipeline& getShaders() {
+        return *shaderPipeline.get();
     }
 
-    void set_center_y(float y) {
-        center_y = y;
+    void setWireframeMode(bool wireframeMode) {
+        this->wireframeMode = wireframeMode;
     }
 
-    void set_wireframe_mode(bool wireframe_mode) {
-        this->wireframe_mode = wireframe_mode;
-    }
-
-    void set_tesselation(bool tesselation) {
+    void setTesselation(bool tesselation) {
         this->tesselation = tesselation;
     }
 
-    void render(const glm::mat4 &viewMatrix, const glm::mat4 &projectionMatrix) override {
+    void setPosition(glm::vec3 position) {
+        this->position = position;
+    }
+
+    void setScale(glm::vec3 scale) {
+        this->scale = scale;
+    }
+
+    virtual void render(const glm::mat4 &viewMatrix, const glm::mat4 &projectionMatrix) override {
         shaderPipeline->enable();
 
         // translation matrix
-        shaderPipeline->setUniform("model", glm::translate(
-            glm::mat4(1.0f),
-            glm::vec3(-60.0f, 0.0f, -60.0f)
+        shaderPipeline->setUniform("model", glm::scale(
+            glm::translate(
+                glm::mat4(1.0f),
+                // plane position
+                position
+            ),
+            scale
         ));
         shaderPipeline->setUniform("view", viewMatrix);
         shaderPipeline->setUniform("projection", projectionMatrix);
-        shaderPipeline->setUniform("center", glm::vec2{center_x, center_y});
 
         // wireframe mode
-        if (this->wireframe_mode) {
+        if (wireframeMode) {
             glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
         } else {
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
@@ -119,8 +126,8 @@ public:
     }
 
     virtual ~GLMeshObject() {
-        glDeleteBuffers(1, &vbo);
-        glDeleteVertexArrays(1, &vao);
+        glDeleteBuffers(0, &vbo);
+        glDeleteVertexArrays(0, &vao);
         glDeleteBuffers(1, &ebo);
     }
 };

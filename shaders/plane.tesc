@@ -32,12 +32,12 @@ void main() {
     // invocation 0 controls tesselation levels for the whole patch
     if (gl_InvocationID == 0) {
         // for each edge of the quad, number of subdivisions
-        gl_TessLevelOuter[0] = 5;
-        gl_TessLevelOuter[1] = 5;
-        gl_TessLevelOuter[2] = 5;
-        gl_TessLevelOuter[3] = 5;
+        gl_TessLevelOuter[0] = 7;
+        gl_TessLevelOuter[1] = 7;
+        gl_TessLevelOuter[2] = 7;
+        gl_TessLevelOuter[3] = 7;
 
-        gl_TessLevelInner[0] = 5;
-        gl_TessLevelInner[1] = 5;
+        gl_TessLevelInner[0] = 7;
+        gl_TessLevelInner[1] = 7;
     }
 }
