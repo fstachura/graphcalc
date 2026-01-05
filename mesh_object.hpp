@@ -6,7 +6,6 @@
 #include <glm/glm.hpp>
 #include "GL/glew.h"
 
-#include "vertex.hpp"
 #include "shader_pipeline.hpp"
 #include "utils.hpp"
 
@@ -126,7 +125,7 @@ public:
     }
 
     virtual ~GLMeshObject() {
-        glDeleteBuffers(0, &vbo);
+        glDeleteBuffers(1, &vbo);
         glDeleteVertexArrays(0, &vao);
         glDeleteBuffers(1, &ebo);
     }

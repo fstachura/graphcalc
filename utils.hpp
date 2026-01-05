@@ -1,4 +1,5 @@
 #pragma once
+#include <GL/gl.h>
 #include <iostream>
 #include <fstream>
 #include <filesystem>
@@ -6,6 +7,9 @@
 
 #include <glm/glm.hpp>
 #include "GLFW/glfw3.h"
+
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
 
 struct Vertex {
     glm::vec3 position;
@@ -64,6 +68,68 @@ GLMesh generate_plane_mesh(int side_len) {
     return plane;
 }
 
+struct TextureLoadError: public std::exception {
+    std::string path;
+
+    TextureLoadError(std::string path): path(path) {
+    }
+};
+
+unsigned int createGLTexture(const char* path) {
+    unsigned int texture;
+    glGenTextures(1, &texture);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+
+    int width, height, nrChannels;
+    unsigned char* data = stbi_load(path, &width, &height, &nrChannels, 0);
+    if (data == nullptr) {
+        throw TextureLoadError(path);
+    }
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+
+    stbi_image_free(data);
+
+    return texture;
+}
+
+unsigned int create1DGLTexture(const char* path) {
+    unsigned int texture;
+    glGenTextures(1, &texture);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_1D, texture);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+
+    int width, height, nrChannels;
+    unsigned char* data = stbi_load(path, &width, &height, &nrChannels, 0);
+    if (data == nullptr) {
+        throw TextureLoadError(path);
+    }
+
+    // 0 - level of detail (base detail level)
+    // second 0 - border
+    glTexImage1D(GL_TEXTURE_1D, 0, GL_RGB, width, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+
+    stbi_image_free(data);
+
+    return texture;
+}
+
+unsigned int createGLBuffer(unsigned int size) {
+    unsigned int buffer;
+    glGenBuffers(1, &buffer);
+    glBindBuffer(GL_UNIFORM_BUFFER, buffer);
+    glNamedBufferData(buffer, size, NULL, GL_DYNAMIC_READ);
+    return buffer;
+}
 
 std::string readFile(const std::filesystem::path &path) {
     std::ifstream stream(path, std::ios::in);

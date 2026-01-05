@@ -9,6 +9,7 @@ uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
 uniform vec2 center;
+uniform vec2 minMax;
 
 // uniform vec3 camera_position;
 // struct DirectionalLight {
@@ -35,11 +36,8 @@ uniform vec2 center;
 // }
 
 void main() {
-    vec3 c = mix(vec3(0.0, 0.0, 1.0), vec3(1.0, 1.0, 0.0), sin(position.y));
-
     out_color = vec4(
-        // calc_directional_light(),
-        c,
+        color,
         1.0f
     );
 }

@@ -3,7 +3,7 @@
 
 CXX = g++
 IMGUI_DIR = imgui
-CXXFLAGS = -g -lGL -lGLEW -lglfw -I imgui -I imgui/backends/
+CXXFLAGS = -g -lGL -lGLEW -lglfw -I imgui -I imgui/backends/ -I stb
 SOURCES = main.cpp $(IMGUI_DIR)/imgui.cpp $(IMGUI_DIR)/imgui_draw.cpp $(IMGUI_DIR)/imgui_tables.cpp $(IMGUI_DIR)/imgui_widgets.cpp
 SOURCES += $(IMGUI_DIR)/backends/imgui_impl_glfw.cpp $(IMGUI_DIR)/backends/imgui_impl_opengl3.cpp
 OBJS = $(addsuffix .o, $(basename $(notdir $(SOURCES))))

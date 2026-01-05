@@ -146,7 +146,7 @@ void initOpenGL() {
     }
 
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, true);
 }
@@ -208,6 +208,10 @@ int main() {
 
     auto graph = std::make_shared<Graph>();
 
+    std::shared_ptr<GLComputeShader> compute_shader = std::make_shared<GLComputeShader>();
+    std::string minmax_shader = readFile("shaders/minmax.comp") + "float func(float x, float y) { return sin(x) * cos(y); }";
+    compute_shader->setShader(minmax_shader);
+
     std::shared_ptr<GLShaderPipeline> grid_shaders = std::make_shared<GLShaderPipeline>();
     grid_shaders->setVertexShader(readFile("shaders/grid.vert"));
     grid_shaders->setFragmentShader(readFile("shaders/grid.frag"));
@@ -236,8 +240,7 @@ int main() {
     char buf[1024] = {"sin(x)*cos(y)"};
 
     float center_x = 0, center_y = 0;
-    float range_x_start = 0, range_x_end = 0;
-    float range_y_start = 0, range_y_end = 0;
+    float scale_x = 1.0, scale_y = 1.0, scale_z = 1.0;
 
     while (!glfwWindowShouldClose(window)) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -271,15 +274,14 @@ int main() {
             if (ImGui::DragFloat("center y", &center_y, 0.01f))
                 graph->setCenter({center_x, center_y});
 
-            if (ImGui::DragFloat("range x start", &range_x_start, 0.01f, -10, 10))
-                graph->setRangeX({range_x_start, range_x_end});
-            if (ImGui::DragFloat("range x end", &range_x_end, 0.01f, -10, 10))
-                graph->setRangeX({range_x_start, range_x_end});
+            if (ImGui::DragFloat("scale x", &scale_x, 0.001f, 0.001, 100))
+                graph->setScale({scale_x, scale_y, scale_z});
+            if (ImGui::DragFloat("scale y", &scale_y, 0.001f, 0.001, 100))
+                graph->setScale({scale_x, scale_y, scale_z});
+            if (ImGui::DragFloat("scale z", &scale_z, 0.001f, 0.001, 100))
+                graph->setScale({scale_x, scale_y, scale_z});
 
-            if (ImGui::DragFloat("range y start", &range_y_start, 0.01f, -10, 10))
-                graph->setRangeY({range_y_start, range_y_end});
-            if (ImGui::DragFloat("range y end", &range_y_end, 0.01f, -10, 10))
-                graph->setRangeY({range_y_start, range_y_end});
+            ImGui::Text("approx. min %f max %f", graph->getLastMinMax().x, graph->getLastMinMax().y);
 
             ImGui::End();
         }
@@ -296,6 +298,8 @@ int main() {
             app.scene.camera.setAspectRatio((float)fbWidth/(float)fbHeight);
             fbSizeChanged = false;
         }
+
+        glFinish();
     }
 
     glfwDestroyWindow(window);

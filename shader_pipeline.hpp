@@ -1,4 +1,5 @@
 #pragma once
+#include <GL/glext.h>
 #include <optional>
 #include <stdexcept>
 #include <vector>
@@ -202,3 +203,108 @@ public:
     }
 };
 
+class GLComputeShader {
+    GLuint id;
+    std::map<std::string, GLint> uniformIds {};
+    std::optional<GLuint> shaderId {};
+    bool linked = false;
+
+    GLuint compileShader(const GLuint shaderKind, const std::string &shader) const {
+        GLuint shaderID = glCreateShader(shaderKind);
+
+        char const *vertexSourcePointer = shader.c_str();
+        // shader id, how many code strings, actual code, array of string lengths
+        glShaderSource(shaderID, 1, &vertexSourcePointer, nullptr);
+        glCompileShader(shaderID);
+
+        checkShader(shaderID);
+        return shaderID;
+    }
+
+    GLint getUniformID(const std::string &name) {
+        const auto it = uniformIds.find(name);
+        if (it != uniformIds.end())
+            return it->second;
+
+        const GLint uniformId = glGetUniformLocation(id, name.c_str());
+        if (uniformId == -1) {
+            // throw std::runtime_error("failed to get uniform with name: " + name);
+            std::cerr << "failed to get uniform with name: " << name << std::endl;
+        }
+
+        uniformIds.emplace(name, uniformId);
+        return uniformId;
+    }
+
+public:
+    GLComputeShader() {
+        id = glCreateProgram();
+    }
+
+    GLComputeShader(GLComputeShader&&) = delete;
+    GLComputeShader(GLComputeShader&) = delete;
+
+    void setShader(const std::string &shader) {
+        auto oldShaderId = shaderId;
+        std::cout << "compiling compute shader" << std::endl;
+        shaderId = compileShader(GL_COMPUTE_SHADER, shader);
+        if (oldShaderId.has_value()) {
+            glDetachShader(id, *oldShaderId);
+            glDeleteShader(*oldShaderId);
+        }
+        linked = false;
+    }
+
+    void enable() {
+        if (!linked) {
+            linkProgram();
+            linked = true;
+        }
+        glUseProgram(id);
+    }
+
+    void setUniform(const std::string &name, const GLint value) {
+        glUniform1i(getUniformID(name), value);
+    }
+
+    void setUniform(const std::string &name, const float value) {
+        glUniform1f(getUniformID(name), value);
+    }
+
+    void setUniform(const std::string &name, const glm::vec2 &value) {
+        glUniform2f(getUniformID(name), value.x, value.y);
+    }
+
+    void setUniform(const std::string &name, const glm::vec3 &value) {
+        glUniform3f(getUniformID(name), value.x, value.y, value.z);
+    }
+
+    void setUniform(const std::string &name, const glm::vec4 &value) {
+        glUniform4f(getUniformID(name), value.x, value.y, value.z, value.w);
+    }
+
+    void setUniform(const std::string &name, const glm::mat4 &value) {
+        glUniformMatrix4fv(getUniformID(name), 1, GL_FALSE, &value[0][0]);
+    }
+
+    void setUniform(const std::string &name, const std::vector<GLint> &value) {
+        glUniform1iv(getUniformID(name), static_cast<GLint>(value.size()), value.data());
+    }
+
+    void setUniform(const std::string &name, const std::vector<float> &value) {
+        glUniform1fv(getUniformID(name), static_cast<GLint>(value.size()), value.data());
+    }
+
+    void linkProgram() const {
+        if (shaderId.has_value())
+            glAttachShader(id, *shaderId);
+        glLinkProgram(id);
+        checkProgram(id);
+    }
+
+    ~GLComputeShader() {
+        glDeleteProgram(id);
+        if (shaderId.has_value())
+            glDeleteShader(*shaderId);
+    }
+};
