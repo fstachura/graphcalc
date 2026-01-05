@@ -1,0 +1,155 @@
+#version 430 core
+
+layout (local_size_x = 1, local_size_y = 1) in;
+
+float func(float x, float y);
+
+uniform vec2 center;
+uniform vec3 scale;
+
+layout (std430, binding=0) buffer resultMin {
+    float resultMinInner[];
+};
+
+layout (std430, binding=1) buffer resultMax {
+    float resultMaxInner[];
+};
+
+// GC MATH - keep in sync with other shaders
+
+#define pi 3.14159265358979323846lf
+#define e  2.7182818284590452354lf
+
+double gc_sin(double x) {
+    return double(sin(float(x)));
+}
+
+double gc_cos(double x) {
+    return double(cos(float(x)));
+}
+
+double gc_tan(double x) {
+    return double(tan(float(x)));
+}
+
+double gc_asin(double x) {
+    return double(asin(float(x)));
+}
+
+double gc_acos(double x) {
+    return double(acos(float(x)));
+}
+
+double gc_atan(double x) {
+    return double(atan(float(x)));
+}
+
+double gc_sinh(double x) {
+    return double(sinh(float(x)));
+}
+
+double gc_cosh(double x) {
+    return double(cosh(float(x)));
+}
+
+double gc_tanh(double x) {
+    return double(tanh(float(x)));
+}
+
+double gc_asinh(double x) {
+    return double(asinh(float(x)));
+}
+
+double gc_acosh(double x) {
+    return double(acosh(float(x)));
+}
+
+double gc_atanh(double x) {
+    return double(atanh(float(x)));
+}
+
+double gc_exp(double x) {
+    return double(exp(float(x)));
+}
+
+double gc_log(double x) {
+    return double(log(float(x)));
+}
+
+double gc_exp2(double x) {
+    return double(exp2(float(x)));
+}
+
+double gc_log2(double x) {
+    return double(log2(float(x)));
+}
+
+double gc_pow(double x, double y) {
+    return double(pow(float(x), float(y)));
+}
+
+// END GC MATH
+
+// 100x100 texture
+// execute 100*100 times per shader
+
+void main() {
+    bool firstIt = true;
+    float resultMin = 0, resultMax = 0;
+
+    ivec2 iterations = ivec2(10, 10);
+
+    // size of shader invocation square
+    ivec2 computeSize = ivec2(
+        gl_NumWorkGroups.x*gl_WorkGroupSize.x,
+        gl_NumWorkGroups.y*gl_WorkGroupSize.y
+    );
+
+    // size of a single iteration
+    vec2 iterationSize = vec2(
+        scale.x / float(computeSize[0] * iterations[0]),
+        scale.y / float(computeSize[1] * iterations[1])
+    );
+
+    // center of local square
+    vec2 curr = vec2(
+        center.x +
+            scale.x * (float(gl_GlobalInvocationID.x)/float(computeSize.x)) -
+            scale.x/2,
+        center.y +
+            scale.y * (float(gl_GlobalInvocationID.y)/float(computeSize.y)) -
+            scale.y/2
+    );
+
+    float initX = curr.x;
+    float initY = curr.y;
+
+    for (int x=0; x != iterations.x; x++) {
+        for (int y=0; y != iterations.y; y++) {
+            float val = func(curr.x, curr.y) * scale.z;
+            if (isnan(val) || isinf(val)) {
+                continue;
+            }
+
+            if (!firstIt) {
+                resultMin = min(resultMin, val);
+                resultMax = max(resultMax, val);
+            } else {
+                resultMin = val;
+                resultMax = val;
+                firstIt = false;
+            }
+            curr.y += iterationSize.y;
+        }
+        curr.x += iterationSize.x;
+        curr.y = initY;
+    }
+
+    // imageStore(result_min, ivec2(gl_GlobalInvocationID.xy), ivec4(min));
+    // imageStore(result_max, ivec2(gl_GlobalInvocationID.xy), ivec4(max));
+
+    uint globalID = gl_GlobalInvocationID.y * (gl_WorkGroupSize.x * gl_NumWorkGroups.x) + gl_GlobalInvocationID.x;
+    resultMinInner[globalID] = resultMin;
+    resultMaxInner[globalID] = resultMax;
+}
+
