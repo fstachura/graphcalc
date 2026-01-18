@@ -9,6 +9,12 @@
 #include "shader_pipeline.hpp"
 #include "utils.hpp"
 
+enum class GLMeshObjectType {
+    Triangle,
+    Line,
+    Tesselated
+};
+
 class GLMeshObject: public GLRenderable {
     // vertex array object - storespalące mnie pytanie calls to glEnableVertexAttribArray, vertex attribute configurations (glVertexAttribPointer) and vertex buffer objects associated with vertex attributes by calls to glVertexAttribPointer
     GLuint vao;
@@ -18,7 +24,9 @@ class GLMeshObject: public GLRenderable {
     GLuint ebo;
 
     bool wireframeMode = false;
-    bool tesselation = false;
+    GLMeshObjectType type = GLMeshObjectType::Triangle;
+    float tessLevel = 16.0;
+
     glm::vec3 position = {0, 0, 0};
     glm::vec3 scale = {1, 1, 1};
 
@@ -83,8 +91,12 @@ public:
         this->wireframeMode = wireframeMode;
     }
 
-    void setTesselation(bool tesselation) {
-        this->tesselation = tesselation;
+    void setType(GLMeshObjectType type) {
+        this->type = type;
+    }
+
+    void setTesselationLevel(float tessLevel) {
+        this->tessLevel = tessLevel;
     }
 
     void setPosition(glm::vec3 position) {
@@ -95,7 +107,7 @@ public:
         this->scale = scale;
     }
 
-    virtual void render(const glm::mat4 &viewMatrix, const glm::mat4 &projectionMatrix) override {
+    virtual void render(const GLCamera& camera) override {
         shaderPipeline->enable();
 
         // translation matrix
@@ -107,8 +119,10 @@ public:
             ),
             scale
         ));
-        shaderPipeline->setUniform("view", viewMatrix);
-        shaderPipeline->setUniform("projection", projectionMatrix);
+        shaderPipeline->setUniform("view", camera.getViewMatrix());
+        shaderPipeline->setUniform("projection", camera.getProjectionMatrix());
+        shaderPipeline->setUniform("camera_position", camera.position);
+        shaderPipeline->setUniform("tess_level", tessLevel);
 
         // wireframe mode
         if (wireframeMode) {
@@ -117,10 +131,12 @@ public:
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         }
 
-        if (tesselation) {
+        if (type == GLMeshObjectType::Tesselated) {
             glDrawElements(GL_PATCHES, mesh.indices.size(), GL_UNSIGNED_INT, 0);
-        } else {
+        } else if (type == GLMeshObjectType::Triangle) {
             glDrawElements(GL_TRIANGLES, mesh.indices.size(), GL_UNSIGNED_INT, 0);
+        } else if (type == GLMeshObjectType::Line) {
+            glDrawElements(GL_LINE_LOOP, mesh.indices.size(), GL_UNSIGNED_INT, 0);
         }
     }
 

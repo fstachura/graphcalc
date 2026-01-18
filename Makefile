@@ -3,12 +3,13 @@
 
 CXX = g++
 IMGUI_DIR = imgui
-CXXFLAGS = -g -lGL -lGLEW -lglfw -I imgui -I imgui/backends/ -I stb
+CXXFLAGS = -g -lGL -lGLEW -lglfw -I imgui -I imgui/backends/ -I stb -D GLFW_BUILD_WAYLAND=0
 SOURCES = main.cpp $(IMGUI_DIR)/imgui.cpp $(IMGUI_DIR)/imgui_draw.cpp $(IMGUI_DIR)/imgui_tables.cpp $(IMGUI_DIR)/imgui_widgets.cpp
 SOURCES += $(IMGUI_DIR)/backends/imgui_impl_glfw.cpp $(IMGUI_DIR)/backends/imgui_impl_opengl3.cpp
 OBJS = $(addsuffix .o, $(basename $(notdir $(SOURCES))))
+HEADER_FILES = $(wildcard ./*.hpp)
 
-%.o:%.cpp
+%.o:%.cpp  $(HEADER_FILES)
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
 
 %.o:$(IMGUI_DIR)/%.cpp
@@ -21,4 +22,4 @@ main: $(OBJS)
 	$(CXX) -o $@ $^ $(CXXFLAGS)
 
 clean:
-	rm -f main
+	rm -f main *.o

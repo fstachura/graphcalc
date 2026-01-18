@@ -117,10 +117,10 @@ void main() {
     float result = func(mapped_position.x + center.x, mapped_position.y + center.y) * scale.z;
     position.y = result;
 
-    float texCoord = (result-minMax[0])/abs(minMax[1]-minMax[0]);
+    float tex_coord = (result-minMax[0])/abs(minMax[1]-minMax[0]);
     // color = mix(vec3(0.0, 0.0, 1.0), vec3(1.0, 1.0, 0.0), texCoord);
     // color = vec3((result-minMax[0])/abs(minMax[1]-minMax[0]), 0.0, 1.0);
-    color = texture(colormap, texCoord).rgb;
+    color = texture(colormap, tex_coord).rgb;
     gl_Position = projection * view * model * vec4(position, 1.0);
     //gl_Position = vec4(position[0], 1.0);
 }

@@ -10,6 +10,8 @@ in vec3 position[];
 out vec3 outColor[];
 out vec3 outPosition[];
 
+uniform float tess_level;
+
 // uniform mat4 model;
 // uniform mat4 view;
 // uniform mat4 projection;
@@ -31,13 +33,13 @@ void main() {
 
     // invocation 0 controls tesselation levels for the whole patch
     if (gl_InvocationID == 0) {
-        // for each edge of the quad, number of subdivisions
-        gl_TessLevelOuter[0] = 7;
-        gl_TessLevelOuter[1] = 7;
-        gl_TessLevelOuter[2] = 7;
-        gl_TessLevelOuter[3] = 7;
+        // for each edge of the traingle, number of subdivisions
+        gl_TessLevelOuter[0] = tess_level;
+        gl_TessLevelOuter[1] = tess_level;
+        gl_TessLevelOuter[2] = tess_level;
+        gl_TessLevelOuter[3] = tess_level;
 
-        gl_TessLevelInner[0] = 7;
-        gl_TessLevelInner[1] = 7;
+        gl_TessLevelInner[0] = tess_level;
+        gl_TessLevelInner[1] = tess_level;
     }
 }

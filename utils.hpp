@@ -16,13 +16,40 @@ struct Vertex {
     glm::vec3 color;
 };
 
+class GLCamera {
+public:
+    glm::vec3 position { 0, 0, 0 };
+    glm::vec3 up { 0, 1, 0 };
+    glm::vec3 where { 0, 0, 0 };
+    float aspectRatio = 4.05 / 3.0f;
+    // float aspectRatio = 1200.0f / 800.0f;
+    float fieldOfView = 80.f;
+    float zNear = 0.1f;
+    float zFar = 500.f;
+
+    GLCamera() { }
+
+    glm::mat4 getViewMatrix() const {
+        // TODO math behind this
+        return glm::lookAt(position, where, up);
+    }
+
+    glm::mat4 getProjectionMatrix() const {
+        return glm::perspective(glm::radians(fieldOfView), aspectRatio, zNear, zFar);
+    }
+
+    void setAspectRatio(float aspectRatio) {
+        this->aspectRatio = aspectRatio;
+    }
+};
+
 struct GLMesh {
     std::vector<Vertex> vertices;
     std::vector<GLuint> indices;
 };
 
 struct GLRenderable {
-    virtual void render(const glm::mat4 &viewMatrix, const glm::mat4 &projectionMatrix) = 0;
+    virtual void render(const GLCamera& camera) = 0;
     virtual ~GLRenderable() {}
 };
 
@@ -59,7 +86,7 @@ GLMesh generate_plane_mesh(int side_len) {
             plane.indices.push_back(y*side_len + x + 1);
             plane.indices.push_back((y+1)*side_len + x);
 
-            plane.indices.push_back((y+1)*side_len + x);
+            plane.indices.push_back((y+1)*side_len + x) ;
             plane.indices.push_back((y+1)*side_len + x + 1);
             plane.indices.push_back(y*side_len + x + 1);
         }

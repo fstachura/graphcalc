@@ -76,6 +76,7 @@ std::string to_string(TokenType tok) {
         case TokenType::ParenEnd:
             return "ParenEnd";
     }
+    return "unknown";
 }
 
 struct Token {

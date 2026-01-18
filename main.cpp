@@ -28,33 +28,8 @@
 
 // NOTE: partially based on https://github.com/quazuo/grafika-mimuw
 
-class GLCamera {
-public:
-    glm::vec3 position { 0, 0, 0 };
-    glm::vec3 up { 0, 1, 0 };
-    glm::vec3 where { 0, 0, 0 };
-    float aspectRatio = 4.05 / 3.0f;
-    // float aspectRatio = 1200.0f / 800.0f;
-    float fieldOfView = 80.f;
-    float zNear = 0.1f;
-    float zFar = 500.f;
-
-    GLCamera() {
-    }
-
-    glm::mat4 getViewMatrix() {
-        // TODO math behind this
-        return glm::lookAt(position, where, up);
-    }
-
-    glm::mat4 getProjectionMatrix() {
-        return glm::perspective(glm::radians(fieldOfView), aspectRatio, zNear, zFar);
-    }
-
-    void setAspectRatio(float aspectRatio) {
-        this->aspectRatio = aspectRatio;
-    }
-};
+int fbWidth = 1200, fbHeight = 800;
+bool fbSizeChanged = false;
 
 struct GLScene {
     std::vector<std::shared_ptr<GLRenderable>> objects;
@@ -62,7 +37,7 @@ struct GLScene {
 
     void render() {
         for (auto&& r: objects) {
-            r->render(camera.getViewMatrix(), camera.getProjectionMatrix());
+            r->render(camera);
         }
     }
 };
@@ -82,10 +57,10 @@ struct App {
     double movementSpeed = 0.5f;
 
     void tickInputEvents() {
-        if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
-            double xpos, ypos;
-            glfwGetCursorPos(window, &xpos, &ypos);
+        double xpos, ypos;
+        glfwGetCursorPos(window, &xpos, &ypos);
 
+        if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
             if (lastLeftButton) {
                 double xoffset = xpos - lastX;
                 double yoffset = ypos - lastY;
@@ -129,6 +104,18 @@ struct App {
 
         glm::vec3 normDir = glm::normalize(scene.camera.where - scene.camera.position);
         scene.camera.position += camZoom * normDir;
+
+
+        double normX = (2.0f*xpos)/fbWidth - 1.0f;
+        double normY = 1.0f - (2.0f*ypos)/fbHeight;
+
+        // https://antongerdelan.net/opengl/raycasting.html
+        glm::vec3 ray_eye3 = glm::vec4(normX, normY, -1.0, 1.0) * glm::inverse(scene.camera.getProjectionMatrix());
+        glm::vec4 ray_eye = glm::vec4(ray_eye3.x, ray_eye3.y, -1.0, 0.0);
+        glm::vec4 ray_world4 = ray_eye * glm::inverse(scene.camera.getViewMatrix());
+        glm::vec3 ray_world = glm::vec3(ray_world4.x, ray_world4.y, ray_world4.z);
+
+        std::cout << "ray_world " << ray_world.x << " " << ray_world.y << " " << ray_world.z << std::endl;
     }
 };
 
@@ -141,6 +128,8 @@ void windowRefreshCallback(GLFWwindow *window) {
 }
 
 void initOpenGL() {
+    glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_X11);
+
     if (!glfwInit()) {
         throw std::runtime_error("failed to init glfw");
     }
@@ -152,16 +141,13 @@ void initOpenGL() {
 }
 
 // TODO
-// heatmap
 // numbers on grid, z grid
+// mouse raycasting
 // add lightning and shadows
 // add optional texture and other options from GUI
 // polar coordinates?
 
 // TODO math
-
-int fbWidth = 1200, fbHeight = 800;
-bool fbSizeChanged = false;
 
 void fbSizeCallback(GLFWwindow *window, const int width, const int height) {
     if (width > 0 && height > 0) {
@@ -180,7 +166,8 @@ void scrollCallback(GLFWwindow *window, double xoffset, double yoffset) {
 int main() {
     initOpenGL();
 
-    GLFWwindow* window = glfwCreateWindow(1200, 800, "graphcalc", nullptr, nullptr);
+    glfwWindowHint(GLFW_SAMPLES, 4);
+    GLFWwindow* window = glfwCreateWindow(fbWidth, fbHeight, "graphcalc", nullptr, nullptr);
     if (!window) {
         const char* desc;
         std::cerr << "failed to open glfw window " << glfwGetError(&desc) << " " << desc << std::endl;
@@ -194,7 +181,7 @@ int main() {
     glewExperimental = true;
     auto glew_init_result = glewInit();
     if (glew_init_result != GLEW_OK) {
-        std::cerr << "failed to init glew" << std::endl;
+        std::cerr << "failed to init glew " << glew_init_result << std::endl;
         glfwTerminate();
         return -1;
     }
@@ -205,6 +192,9 @@ int main() {
 
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     glEnable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
+    glEnable(GL_MULTISAMPLE);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     auto graph = std::make_shared<Graph>();
 
@@ -217,12 +207,16 @@ int main() {
     grid_shaders->setFragmentShader(readFile("shaders/grid.frag"));
 
     std::shared_ptr<GLMeshObject> grid = std::make_shared<GLMeshObject>(generate_plane_mesh(11), grid_shaders);
-    grid->setWireframeMode(true);
+    // grid->setWireframeMode(true);
     grid->setScale({3, 3, 3});
+    // grid->setType(GLMeshObjectType::Line);
 
     App app { .window = window };
     app.scene.objects.push_back(graph);
     app.scene.objects.push_back(grid);
+
+    // auto graph2 = std::make_shared<Graph>();
+    // app.scene.objects.push_back(graph2);
 
     glfwSetWindowRefreshCallback(window, windowRefreshCallback);
     glfwSetWindowUserPointer(window, &app);
@@ -241,6 +235,8 @@ int main() {
 
     float center_x = 0, center_y = 0;
     float scale_x = 1.0, scale_y = 1.0, scale_z = 1.0;
+    float tess_level = 16.0;
+    bool wireframe_mode = false, lighting = false;
 
     while (!glfwWindowShouldClose(window)) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -274,17 +270,30 @@ int main() {
             if (ImGui::DragFloat("center y", &center_y, 0.01f))
                 graph->setCenter({center_x, center_y});
 
-            if (ImGui::DragFloat("scale x", &scale_x, 0.001f, 0.001, 100))
+            if (ImGui::DragFloat("scale x", &scale_x, 0.01f, 0.01, 100))
                 graph->setScale({scale_x, scale_y, scale_z});
-            if (ImGui::DragFloat("scale y", &scale_y, 0.001f, 0.001, 100))
+            if (ImGui::DragFloat("scale y", &scale_y, 0.01f, 0.01, 100))
                 graph->setScale({scale_x, scale_y, scale_z});
-            if (ImGui::DragFloat("scale z", &scale_z, 0.001f, 0.001, 100))
+            if (ImGui::DragFloat("scale z", &scale_z, 0.01f, 0.01, 100))
                 graph->setScale({scale_x, scale_y, scale_z});
 
             ImGui::Text("approx. min %f max %f", graph->getLastMinMax().x, graph->getLastMinMax().y);
 
-            ImGui::End();
+            if (ImGui::TreeNode("rendering settings")) {
+                if (ImGui::Checkbox("wireframe mode", &wireframe_mode))
+                    graph->setWireframeMode(wireframe_mode);
+
+                if (ImGui::Checkbox("lightning", &lighting))
+                    graph->setLighting(lighting);
+
+                if (ImGui::DragFloat("tesselation level", &tess_level, 0.1f, 2.0, 64.0))
+                    graph->setTesselationLevel(tess_level);
+
+                ImGui::TreePop();
+            }
         }
+
+        ImGui::End();
 
         ImGui::EndFrame();
         ImGui::Render();
