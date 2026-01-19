@@ -53,6 +53,23 @@ struct GLRenderable {
     virtual ~GLRenderable() {}
 };
 
+struct DirectionalLight {
+    glm::vec3 direction = {-1.0f, 0.0, -1.0f};
+    glm::vec3 color = {1.0f, 1.0, 1.0f};
+
+    DirectionalLight(const DirectionalLight&) = default;
+};
+
+struct PointLight {
+    glm::vec3 position = {0.0, 10.0f, 0.0};
+    glm::vec3 color = {1.0f, 1.0, 1.0f};
+    float att_constant = 1.0f;
+    float att_linear = 1.0f;
+    float att_quadratic = 1.0f;
+
+    PointLight(const PointLight&) = default;
+};
+
 GLMesh generate_plane_mesh(int side_len) {
     GLMesh plane;
 

@@ -1,6 +1,7 @@
 #pragma once
 #include <GL/gl.h>
 #include <memory>
+#include <optional>
 #include <vector>
 #include <algorithm>
 
@@ -101,7 +102,10 @@ class Graph: public GLRenderable {
     glm::vec2 minMax = {-1.0, 1.0};
     glm::vec3 scale  = {1.0, 1.0, 1.0};
     unsigned int colormapTexture;
-    bool lighting = false;;
+    bool lighting = false;
+
+    std::optional<DirectionalLight> directionalLight;
+    std::optional<PointLight> pointLight;
 
     std::unique_ptr<GLMeshObject> plane;
     std::shared_ptr<GLShaderPipeline> shaders;
@@ -138,11 +142,19 @@ public:
         plane->getShaders().setUniform("center", center);
         plane->getShaders().setUniform("scale", scale);
         plane->getShaders().setUniform("minMax", minMax);
-        plane->getShaders().setUniform("lighting", lighting ? 1 : 0);
 
-        plane->getShaders().setUniform("directional_light.direction", glm::normalize(glm::vec3({1.0f, 1.0f, 1.0f})));
-        plane->getShaders().setUniform("directional_light.color", glm::vec3({1, 1, 1}));
-        // std::cout << minMax.x << " " << minMax.y << std::endl;
+        auto dlight = directionalLight.value_or(DirectionalLight {});
+        plane->getShaders().setUniform("directional_light_enabled", directionalLight.has_value() ? 1 : 0);
+        plane->getShaders().setUniform("directional_light.direction", glm::normalize(dlight.direction));
+        plane->getShaders().setUniform("directional_light.color", dlight.color);
+
+        auto plight = pointLight.value_or(PointLight {});
+        plane->getShaders().setUniform("point_light_enabled", pointLight.has_value() ? 1 : 0);
+        plane->getShaders().setUniform("point_light.position", glm::normalize(plight.position));
+        plane->getShaders().setUniform("point_light.color", dlight.color);
+        plane->getShaders().setUniform("point_light.att_constant", plight.att_constant);
+        plane->getShaders().setUniform("point_light.att_linear", plight.att_linear);
+        plane->getShaders().setUniform("point_light.att_quadratic", plight.att_quadratic);
 
         glBindTexture(GL_TEXTURE_1D, colormapTexture);
         plane->render(camera);
@@ -178,8 +190,12 @@ public:
         plane->setWireframeMode(wireframeMode);
     }
 
-    void setLighting(bool lighting) {
-        this->lighting = lighting;
+    void setPointLight(std::optional<PointLight> plight) {
+        this->pointLight = plight;
+    }
+
+    void setDirectionalLight(std::optional<DirectionalLight> dlight) {
+        this->directionalLight = dlight;
     }
 
     glm::vec2 getLastMinMax() {

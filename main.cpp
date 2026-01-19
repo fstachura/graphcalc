@@ -143,9 +143,6 @@ void initOpenGL() {
 // TODO
 // numbers on grid, z grid
 // mouse raycasting
-// add lightning and shadows
-// add optional texture and other options from GUI
-// polar coordinates?
 
 // TODO math
 
@@ -236,7 +233,10 @@ int main() {
     float center_x = 0, center_y = 0;
     float scale_x = 1.0, scale_y = 1.0, scale_z = 1.0;
     float tess_level = 16.0;
-    bool wireframe_mode = false, lighting = false;
+    bool wireframe_mode = false;
+    bool dlight_enabled = false, plight_enabled = false;
+    auto dlight = DirectionalLight {};
+    auto plight = PointLight {};
 
     while (!glfwWindowShouldClose(window)) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -283,11 +283,54 @@ int main() {
                 if (ImGui::Checkbox("wireframe mode", &wireframe_mode))
                     graph->setWireframeMode(wireframe_mode);
 
-                if (ImGui::Checkbox("lightning", &lighting))
-                    graph->setLighting(lighting);
-
                 if (ImGui::DragFloat("tesselation level", &tess_level, 0.1f, 2.0, 64.0))
                     graph->setTesselationLevel(tess_level);
+
+                if (ImGui::TreeNode("point light")) {
+                    if (ImGui::Checkbox("enabled", &plight_enabled))
+                        graph->setPointLight(plight_enabled ?
+                                std::optional<PointLight>({plight}) : std::optional<PointLight>());
+
+                    if (ImGui::DragFloat("position x", &plight.position.x, 0.01f, -10.f, 10.f))
+                        graph->setPointLight(plight_enabled ? std::optional<PointLight>({plight}) : std::optional<PointLight>());
+
+                    if (ImGui::DragFloat("position y", &plight.position.y, 0.01f, -10.f, 10.f))
+                        graph->setPointLight(plight_enabled ? std::optional<PointLight>({plight}) : std::optional<PointLight>());
+
+                    if (ImGui::DragFloat("position z", &plight.position.z, 0.01f, -10.f, 10.f))
+                        graph->setPointLight(plight_enabled ? std::optional<PointLight>({plight}) : std::optional<PointLight>());
+
+                    if (ImGui::DragFloat("att quad", &plight.att_quadratic, 0.01f, -10.f, 10.f))
+                        graph->setPointLight(plight_enabled ? std::optional<PointLight>({plight}) : std::optional<PointLight>());
+
+                    if (ImGui::DragFloat("att lin", &plight.att_linear, 0.01f, -10.f, 10.f))
+                        graph->setPointLight(plight_enabled ? std::optional<PointLight>({plight}) : std::optional<PointLight>());
+
+                    if (ImGui::DragFloat("att const", &plight.att_constant, 0.01f, -10.f, 10.f))
+                        graph->setPointLight(plight_enabled ? std::optional<PointLight>({plight}) : std::optional<PointLight>());
+
+                    ImGui::TreePop();
+                }
+
+                if (ImGui::TreeNode("directional light")) {
+                    if (ImGui::Checkbox("enabled", &dlight_enabled))
+                        graph->setDirectionalLight(dlight_enabled ?
+                                std::optional<DirectionalLight>({dlight}) : std::optional<DirectionalLight>());
+
+                    if (ImGui::DragFloat("direction x", &dlight.direction.x, 0.01f, -10.f, 10.f))
+                        graph->setDirectionalLight(dlight_enabled ?
+                                std::optional<DirectionalLight>({dlight}) : std::optional<DirectionalLight>());
+
+                    if (ImGui::DragFloat("direction y", &dlight.direction.y, 0.01f, -10.f, 10.f))
+                        graph->setDirectionalLight(dlight_enabled ?
+                                std::optional<DirectionalLight>({dlight}) : std::optional<DirectionalLight>());
+
+                    if (ImGui::DragFloat("direction z", &dlight.direction.z, 0.01f, -10.f, 10.f))
+                        graph->setDirectionalLight(dlight_enabled ?
+                                std::optional<DirectionalLight>({dlight}) : std::optional<DirectionalLight>());
+
+                    ImGui::TreePop();
+                }
 
                 ImGui::TreePop();
             }

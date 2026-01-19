@@ -13,12 +13,15 @@ uniform vec2 center;
 uniform vec3 scale;
 uniform vec2 minMax;
 uniform sampler1D colormap;
+uniform int directional_light_enabled;
+uniform int point_light_enabled;
 
 in vec3 in_color[];
 in vec3 in_position[];
 
 out vec3 position;
 out vec3 color;
+out vec3 normal;
 
 float func(float x, float y);
 
@@ -110,12 +113,28 @@ highp vec2 map_position(highp vec2 position, highp vec3 scale) {
     );
 }
 
+// https://stackoverflow.com/a/13983431
+vec3 calc_normal(vec2 mapped_position) {
+    float a = func(mapped_position.x + center.x - 1.0, mapped_position.y + center.y) * scale.z;
+    float b = func(mapped_position.x + center.x + 1.0, mapped_position.y + center.y) * scale.z;
+    float c = func(mapped_position.x + center.x, mapped_position.y + center.y - 1.0) * scale.z;
+    float d = func(mapped_position.x + center.x, mapped_position.y + center.y + 1.0) * scale.z;
+
+    return normalize(vec3(a - b, c - d, 2.0));
+}
+
 void main() {
     position = interpolate3D(gl_in[0].gl_Position.xyz, gl_in[1].gl_Position.xyz, gl_in[2].gl_Position.xyz);
 
     vec2 mapped_position = map_position(vec2(position.x, position.z), scale);
     float result = func(mapped_position.x + center.x, mapped_position.y + center.y) * scale.z;
     position.y = result;
+
+    if (directional_light_enabled == 1 || point_light_enabled == 1) {
+        normal = calc_normal(mapped_position);
+    } else {
+        normal = position;
+    }
 
     float tex_coord = (result-minMax[0])/abs(minMax[1]-minMax[0]);
     // color = mix(vec3(0.0, 0.0, 1.0), vec3(1.0, 1.0, 0.0), texCoord);
